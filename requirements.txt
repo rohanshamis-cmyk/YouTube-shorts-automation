@@ -1,0 +1,42 @@
+# ════════════════════════════════════════════
+#  REVENUE MACHINE - Python Dependencies
+#  Install: pip install -r requirements.txt
+# ════════════════════════════════════════════
+
+# Core
+anthropic>=0.40.0
+openai>=1.50.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+schedule>=1.2.0
+
+# Video Processing
+# FFmpeg must be installed separately:
+# Ubuntu/Debian: sudo apt install ffmpeg
+# Mac: brew install ffmpeg
+# Windows: https://ffmpeg.org/download.html
+
+# Audio Processing
+pydub>=0.25.1
+# Requires ffmpeg system install above
+
+# Image Processing (thumbnails)
+Pillow>=10.0.0
+
+# Content Sources
+praw>=7.7.0          # Reddit API
+pytrends>=4.9.2      # Google Trends
+feedparser>=6.0.11   # RSS feeds
+
+# YouTube Upload
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-api-python-client>=2.104.0
+
+# Optional: Better logging
+colorlog>=6.7.0
+
+# Optional: Web server for n8n webhook integration
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6

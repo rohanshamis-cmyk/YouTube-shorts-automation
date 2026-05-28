@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Revenue Machine — Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a26;
+    --accent: #6366f1;
+    --accent2: #22d3ee;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #f1f5f9;
+    --muted: #64748b;
+    --border: #1e293b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  
+  /* Header */
+  .header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+  }
+  .logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .logo span { 
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(16,185,129,0.1); border: 1px solid var(--green);
+    padding: 6px 14px; border-radius: 20px; font-size: 13px; color: var(--green);
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+  /* Layout */
+  .container { max-width: 1400px; margin: 0 auto; padding: 28px 32px; }
+  
+  /* Stat Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .stat-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-value { font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 8px; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.accent { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-change { font-size: 13px; color: var(--green); display: flex; align-items: center; gap: 4px; }
+  .stat-change.negative { color: var(--red); }
+  .stat-icon { position: absolute; top: 20px; right: 20px; font-size: 28px; opacity: .3; }
+
+  /* Main Grid */
+  .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 20px; margin-bottom: 20px; }
+  
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: 15px;
+  }
+  .panel-header .badge {
+    font-size: 12px; padding: 4px 10px; border-radius: 20px;
+    background: rgba(99,102,241,.15); color: var(--accent); font-weight: 500;
+  }
+  .panel-body { padding: 20px 24px; }
+
+  /* Revenue Chart */
+  .chart-area { height: 200px; position: relative; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 160px; margin-bottom: 8px; }
+  .bar {
+    flex: 1; border-radius: 6px 6px 0 0; position: relative;
+    background: linear-gradient(180deg, var(--accent), rgba(99,102,241,.3));
+    transition: opacity .2s;
+    min-height: 4px;
+  }
+  .bar:hover { opacity: .8; }
+  .bar.today { background: linear-gradient(180deg, var(--green), rgba(16,185,129,.3)); }
+  .bar-label { font-size: 10px; color: var(--muted); text-align: center; }
+  .chart-labels { display: flex; gap: 6px; }
+  .chart-labels span { flex: 1; font-size: 10px; color: var(--muted); text-align: center; }
+
+  /* Pipeline Status */
+  .pipeline { display: flex; flex-direction: column; gap: 8px; }
+  .pipeline-step {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px; border-radius: 12px;
+    background: var(--surface2); font-size: 14px;
+  }
+  .step-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .step-info { flex: 1; }
+  .step-name { font-weight: 500; margin-bottom: 2px; }
+  .step-status { font-size: 12px; }
+  .step-status.running { color: var(--accent2); }
+  .step-status.done { color: var(--green); }
+  .step-status.waiting { color: var(--muted); }
+  .step-status.error { color: var(--red); }
+  
+  /* Progress bar */
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+
+  /* Recent Videos */
+  .video-list { display: flex; flex-direction: column; gap: 12px; }
+  .video-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border-radius: 12px; background: var(--surface2);
+  }
+  .video-thumb {
+    width: 48px; height: 48px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .video-info { flex: 1; min-width: 0; }
+  .video-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .video-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .video-views { font-size: 14px; font-weight: 600; color: var(--accent2); text-align: right; }
+
+  /* Revenue breakdown */
+  .revenue-rows { display: flex; flex-direction: column; gap: 12px; }
+  .revenue-row { display: flex; align-items: center; justify-content: space-between; }
+  .revenue-label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .revenue-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .revenue-bar-wrap { flex: 1; margin: 0 16px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .revenue-bar-fill { height: 100%; border-radius: 3px; }
+  .revenue-amount { font-size: 14px; font-weight: 600; min-width: 70px; text-align: right; }
+
+  /* Bottom Grid */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* Outreach Stats */
+  .outreach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .outreach-stat { background: var(--surface2); border-radius: 12px; padding: 16px; text-align: center; }
+  .outreach-stat .num { font-size: 28px; font-weight: 700; }
+  .outreach-stat .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Alerts */
+  .alert { 
+    padding: 12px 16px; border-radius: 12px; font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .alert.success { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); color: #6ee7b7; }
+  .alert.info { background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.3); color: #a5b4fc; }
+  .alert.warn { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+
+  /* Footer */
+  .footer { margin-top: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 1100px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">🤖 <span>Revenue Machine</span></div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="font-size:13px;color:var(--muted)" id="last-updated">Last updated: just now</div>
+    <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- STATS ROW -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Total Revenue (MTD)</div>
+      <div class="stat-value green" id="total-revenue">$0.00</div>
+      <div class="stat-change" id="revenue-change">▲ $0 this week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">👁️</div>
+      <div class="stat-label">Total Views</div>
+      <div class="stat-value accent" id="total-views">0</div>
+      <div class="stat-change">▲ +0 today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🎬</div>
+      <div class="stat-label">Videos Published</div>
+      <div class="stat-value" id="total-videos">0</div>
+      <div class="stat-change" id="videos-change">+0 today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📧</div>
+      <div class="stat-label">Outreach Replies</div>
+      <div class="stat-value" id="outreach-replies">0</div>
+      <div class="stat-change">of <span id="emails-sent">0</span> emails</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- Revenue Chart + Recent Videos -->
+    <div>
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header">
+          Daily Revenue <span class="badge">30-Day View</span>
+        </div>
+        <div class="panel-body">
+          <div class="chart-area">
+            <div class="chart-bars" id="chart-bars">
+              <!-- Generated by JS -->
+            </div>
+            <div class="chart-labels" id="chart-labels">
+              <!-- Generated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Recent Videos <span class="badge" id="video-count-badge">0 total</span></div>
+        <div class="panel-body">
+          <div class="video-list" id="video-list">
+            <div style="text-align:center;padding:32px;color:var(--muted)">
+              🎬 No videos yet. Run the pipeline to start generating content.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div>
+
+      <!-- Pipeline Status -->
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header">Pipeline Status</div>
+        <div class="panel-body">
+          <div class="pipeline" id="pipeline-steps">
+            <!-- Generated by JS -->
+          </div>
+          <div style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px">
+              <span>Next run in</span><span id="next-run">--:--</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Breakdown -->
+      <div class="panel">
+        <div class="panel-header">Revenue Sources</div>
+        <div class="panel-body">
+          <div class="revenue-rows" id="revenue-breakdown">
+            <!-- Generated by JS -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- Outreach Stats -->
+    <div class="panel">
+      <div class="panel-header">Cold Outreach Campaign</div>
+      <div class="panel-body">
+        <div class="outreach-grid" style="margin-bottom:20px">
+          <div class="outreach-stat">
+            <div class="num" id="leads-scraped">0</div>
+            <div class="lbl">Leads Scraped</div>
+          </div>
+          <div class="outreach-stat">
+            <div class="num" id="emails-total">0</div>
+            <div class="lbl">Emails Sent</div>
+          </div>
+          <div class="outreach-stat">
+            <div class="num green" id="replies-count">0</div>
+            <div class="lbl">Replies</div>
+          </div>
+          <div class="outreach-stat">
+            <div class="num" style="color:var(--yellow)" id="clients-count">0</div>
+            <div class="lbl">Clients Signed</div>
+          </div>
+        </div>
+        <div id="outreach-alerts">
+          <div class="alert info">📧 Campaign launches when you configure OUTREACH_EMAIL in .env</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Alerts -->
+    <div class="panel">
+      <div class="panel-header">System Alerts & Logs</div>
+      <div class="panel-body">
+        <div id="system-alerts">
+          <div class="alert warn">⚙️ Configure API keys in .env to activate all systems</div>
+          <div class="alert info">📖 See MASTER_GUIDE.md for complete setup instructions</div>
+          <div class="alert success">✅ Dashboard loaded successfully</div>
+        </div>
+        <div style="margin-top:16px;font-size:12px;color:var(--muted)">
+          <div style="margin-bottom:8px;font-weight:600;font-size:13px;color:var(--text)">Quick Start Checklist</div>
+          <div id="checklist"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    AI Revenue Machine v1.0 — Built for maximum automation, minimum effort<br>
+    <span style="font-size:11px;margin-top:4px;display:block">Data refreshes every 60 seconds from analytics.json</span>
+  </div>
+
+</div>
+
+<script>
+// ────────────────────────────────────────────
+//  DASHBOARD DATA & RENDERING
+// ────────────────────────────────────────────
+
+const PIPELINE_STEPS = [
+  { icon: '🔍', name: 'Topic Discovery', desc: 'Reddit + Google Trends', status: 'waiting' },
+  { icon: '✍️', name: 'Script Generation', desc: 'Claude AI (Opus)', status: 'waiting' },
+  { icon: '🎙️', name: 'Voiceover', desc: 'ElevenLabs TTS', status: 'waiting' },
+  { icon: '🎥', name: 'Video Assembly', desc: 'FFmpeg + Stock Footage', status: 'waiting' },
+  { icon: '📤', name: 'YouTube Upload', desc: 'YouTube Data API v3', status: 'waiting' },
+  { icon: '📱', name: 'Cross-Post', desc: 'TikTok + Instagram', status: 'waiting' },
+];
+
+const REVENUE_SOURCES = [
+  { label: 'Agency Clients', color: '#6366f1', amount: 0, max: 3000 },
+  { label: 'YouTube AdSense', color: '#22d3ee', amount: 0, max: 500 },
+  { label: 'Affiliates', color: '#10b981', amount: 0, max: 300 },
+  { label: 'Digital Products', color: '#f59e0b', amount: 0, max: 500 },
+];
+
+const CHECKLIST_ITEMS = [
+  { text: 'Set ANTHROPIC_API_KEY in .env', done: false },
+  { text: 'Set ELEVENLABS_API_KEY in .env', done: false },
+  { text: 'Set PEXELS_API_KEY in .env', done: false },
+  { text: 'Download YouTube client_secrets.json', done: false },
+  { text: 'Run first test video (--dry-run)', done: false },
+  { text: 'Configure cold outreach email', done: false },
+  { text: 'Set up Telegram notifications', done: false },
+];
+
+// Sample data for display (replace with real data from analytics.json)
+const SAMPLE_VIDEOS = [
+  { emoji: '🤖', title: 'This AI does your entire job in 10 seconds', views: 0, time: 'Pending upload', platform: 'YT+TT+IG' },
+  { emoji: '💡', title: 'Nobody is talking about this new AI tool...', views: 0, time: 'Pending upload', platform: 'YT+TT' },
+  { emoji: '🚀', title: 'ChatGPT just dropped something insane', views: 0, time: 'Pending upload', platform: 'YT' },
+];
+
+// ── Render chart ──
+function renderChart() {
+  const bars = document.getElementById('chart-bars');
+  const labels = document.getElementById('chart-labels');
+  const days = 30;
+  
+  // Generate sample data (real data comes from analytics.json)
+  const data = Array.from({length: days}, (_, i) => {
+    if (i < days - 1) return Math.floor(Math.random() * 15); // Past: near 0
+    return 0; // Today: $0 (just started)
+  });
+
+  const max = Math.max(...data, 1);
+  let barsHTML = '', labelsHTML = '';
+
+  for (let i = 0; i < days; i++) {
+    const height = Math.max((data[i] / max) * 100, 2);
+    const isToday = i === days - 1;
+    const date = new Date(); date.setDate(date.getDate() - (days - 1 - i));
+    const label = date.getDate().toString();
+    barsHTML += `<div class="bar ${isToday ? 'today' : ''}" style="height:${height}%" title="Day ${i+1}: $${data[i]}"></div>`;
+    labelsHTML += `<span>${i % 5 === 0 ? label : ''}</span>`;
+  }
+
+  bars.innerHTML = barsHTML;
+  labels.innerHTML = labelsHTML;
+}
+
+// ── Render pipeline ──
+function renderPipeline() {
+  const container = document.getElementById('pipeline-steps');
+  container.innerHTML = PIPELINE_STEPS.map(step => `
+    <div class="pipeline-step">
+      <div class="step-icon" style="background:var(--surface)">${step.icon}</div>
+      <div class="step-info">
+        <div class="step-name">${step.name}</div>
+        <div class="step-status ${step.status}">${
+          step.status === 'waiting' ? '⏳ Waiting for trigger' :
+          step.status === 'running' ? '⚡ Running...' :
+          step.status === 'done' ? '✓ Complete' : '✗ Error'
+        }</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Render revenue breakdown ──
+function renderRevenueBreakdown() {
+  const container = document.getElementById('revenue-breakdown');
+  const total = REVENUE_SOURCES.reduce((s, r) => s + r.amount, 1);
+  
+  container.innerHTML = REVENUE_SOURCES.map(r => `
+    <div class="revenue-row">
+      <div class="revenue-label">
+        <div class="revenue-dot" style="background:${r.color}"></div>
+        ${r.label}
+      </div>
+      <div class="revenue-bar-wrap">
+        <div class="revenue-bar-fill" style="width:${(r.amount/r.max)*100}%;background:${r.color}"></div>
+      </div>
+      <div class="revenue-amount" style="color:${r.color}">$${r.amount.toFixed(0)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Render video list ──
+function renderVideos() {
+  const container = document.getElementById('video-list');
+  document.getElementById('video-count-badge').textContent = `${SAMPLE_VIDEOS.length} total`;
+  
+  container.innerHTML = SAMPLE_VIDEOS.map(v => `
+    <div class="video-item">
+      <div class="video-thumb">${v.emoji}</div>
+      <div class="video-info">
+        <div class="video-title">${v.title}</div>
+        <div class="video-meta">${v.time} · ${v.platform}</div>
+      </div>
+      <div class="video-views">${v.views.toLocaleString()} views</div>
+    </div>
+  `).join('');
+}
+
+// ── Render checklist ──
+function renderChecklist() {
+  const container = document.getElementById('checklist');
+  container.innerHTML = CHECKLIST_ITEMS.map(item => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px">${item.done ? '✅' : '⬜'}</span>
+      <span style="color:${item.done ? 'var(--green)' : 'var(--muted)'};font-size:12px;${item.done ? 'text-decoration:line-through' : ''}">${item.text}</span>
+    </div>
+  `).join('');
+}
+
+// ── Countdown to next run ──
+function updateCountdown() {
+  const now = new Date();
+  const nextRuns = [8, 13, 19].map(h => {
+    const d = new Date(); d.setHours(h, 0, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 1);
+    return d;
+  });
+  
+  const next = nextRuns.reduce((a, b) => a < b ? a : b);
+  const diff = next - now;
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  
+  document.getElementById('next-run').textContent = `${hours}h ${mins}m`;
+  
+  // Progress: % through current period (max 5 hours)
+  const period = 5 * 3600000;
+  const progress = Math.min(100, ((period - diff % period) / period) * 100);
+  document.getElementById('progress-fill').style.width = `${progress}%`;
+}
+
+// ── Update timestamp ──
+function updateTimestamp() {
+  document.getElementById('last-updated').textContent = 
+    `Last updated: ${new Date().toLocaleTimeString()}`;
+}
+
+// ── Initialize ──
+function init() {
+  renderChart();
+  renderPipeline();
+  renderRevenueBreakdown();
+  renderVideos();
+  renderChecklist();
+  updateCountdown();
+  updateTimestamp();
+  
+  // Refresh countdown every minute
+  setInterval(updateCountdown, 60000);
+  setInterval(updateTimestamp, 60000);
+  
+  // Simulate pipeline activity
+  setTimeout(simulatePipeline, 3000);
+}
+
+function simulatePipeline() {
+  let step = 0;
+  const interval = setInterval(() => {
+    if (step >= PIPELINE_STEPS.length) {
+      clearInterval(interval);
+      PIPELINE_STEPS.forEach(s => s.status = 'waiting');
+      renderPipeline();
+      return;
+    }
+    if (step > 0) PIPELINE_STEPS[step-1].status = 'done';
+    PIPELINE_STEPS[step].status = 'running';
+    renderPipeline();
+    step++;
+  }, 1200);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+client_secrets.json
+youtube_token.pickle
+*.pickle
+
+# Generated runtime artifacts
+logs/
+drafts/
+exports/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local env
+.venv/
+venv/
+node_modules/
+
+# Runtime state
+quota_usage.json
+
+# Local media assets
+assets/backgrounds/*.mp4
+assets/music/*.mp3
+assets/music/*.wav
+
+# QA reports
+qa_reports/
+
+# Regression reports
+storytelling_regression_report*.csv
+storytelling_regression_report*.md
+
+# Generated pipeline outputs
+generated/
+
+# Pivot pipeline rendered outputs (videos, images, audio, manifests)
+pivot/output/
+
+# Local processing cache (footage, processed clips)
+cache/
+
+# Local Claude session state
+.claude/

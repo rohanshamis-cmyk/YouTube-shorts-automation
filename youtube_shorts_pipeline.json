@@ -1,0 +1,292 @@
+{
+  "name": "AI YouTube Shorts Revenue Machine",
+  "description": "Fully automated pipeline: Trending Topics → AI Script → Voiceover → Video → YouTube Upload → Cross-Post → Analytics",
+  "meta": {
+    "templateId": "revenue-machine-v1",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "name": "Daily Trigger (3x/day)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [100, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {"field": "cronExpression", "expression": "0 8 * * *"},
+            {"field": "cronExpression", "expression": "0 13 * * *"},
+            {"field": "cronExpression", "expression": "0 19 * * *"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "reddit-topics",
+      "name": "Fetch Reddit Trending",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [280, 200],
+      "parameters": {
+        "url": "https://www.reddit.com/r/artificial+ChatGPT+technology/hot.json?limit=10",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "RevenueMachineBot/1.0"
+        },
+        "responseFormat": "json"
+      }
+    },
+    {
+      "id": "google-trends",
+      "name": "Google Trends API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [280, 350],
+      "parameters": {
+        "url": "https://trends.google.com/trends/api/dailytrends?hl=en-US&tz=-480&geo=US&ns=15",
+        "method": "GET",
+        "responseFormat": "string"
+      }
+    },
+    {
+      "id": "merge-topics",
+      "name": "Merge & Score Topics",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// Merge topics from Reddit and Google Trends\nconst redditData = $input.first().json;\nconst topics = [];\n\n// Extract Reddit posts\nif (redditData?.data?.children) {\n  for (const post of redditData.data.children.slice(0, 10)) {\n    const d = post.data;\n    if (d.score > 100) {\n      topics.push({\n        title: d.title,\n        source: 'reddit',\n        score: d.score + (d.num_comments * 5),\n        url: `https://reddit.com${d.permalink}`,\n        timestamp: new Date(d.created_utc * 1000).toISOString()\n      });\n    }\n  }\n}\n\n// Sort by score\ntopics.sort((a, b) => b.score - a.score);\nconst bestTopic = topics[0] || { title: 'Amazing new AI tool you need to know about', source: 'fallback', score: 0 };\n\nreturn [{ json: bestTopic }];"
+      }
+    },
+    {
+      "id": "generate-script",
+      "name": "Claude: Generate Viral Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [640, 300],
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "={{$env.ANTHROPIC_API_KEY}}",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json"
+        },
+        "body": {
+          "model": "claude-opus-4-5",
+          "max_tokens": 1000,
+          "system": "You are a viral YouTube Shorts script writer. Create scripts that stop the scroll. Return ONLY valid JSON.",
+          "messages": [{
+            "role": "user",
+            "content": "=Create a viral 45-second YouTube Short script about: \"{{$json.title}}\"\n\nReturn JSON with: title, hook, narration (80-120 words), scenes array with stock_query per scene, tags array, estimated_duration"
+          }]
+        },
+        "responseFormat": "json"
+      }
+    },
+    {
+      "id": "parse-script",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "position": [820, 300],
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.content[0].text;\n\nlet script;\ntry {\n  const cleaned = content.replace(/```json\\s*/g, '').replace(/```\\s*/g, '').trim();\n  script = JSON.parse(cleaned);\n} catch(e) {\n  script = {\n    title: 'Amazing AI Update You Need to See',\n    narration: 'This AI just changed everything. Millions are using it right now. And most people have no idea it exists. Here is what it does. And why you need to know about it today. Follow for more AI updates every single day.',\n    scenes: [{ stock_query: 'artificial intelligence technology' }],\n    estimated_duration: 30,\n    tags: ['ai', 'technology', 'shorts']\n  };\n}\n\nreturn [{ json: { ...script, topic: $input.first().json } }];"
+      }
+    },
+    {
+      "id": "elevenlabs-tts",
+      "name": "ElevenLabs: Generate Voiceover",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300],
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "method": "POST",
+        "headers": {
+          "xi-api-key": "={{$env.ELEVENLABS_API_KEY}}",
+          "Accept": "audio/mpeg",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "text": "={{$json.narration}}",
+          "model_id": "eleven_turbo_v2_5",
+          "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75
+          }
+        },
+        "responseFormat": "file"
+      }
+    },
+    {
+      "id": "pexels-footage",
+      "name": "Pexels: Get Stock Footage",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 450],
+      "parameters": {
+        "url": "=https://api.pexels.com/videos/search?query={{encodeURIComponent($json.scenes[0].stock_query)}}&orientation=portrait&per_page=3",
+        "method": "GET",
+        "headers": {
+          "Authorization": "={{$env.PEXELS_API_KEY}}"
+        },
+        "responseFormat": "json"
+      }
+    },
+    {
+      "id": "assemble-video",
+      "name": "Webhook: Assemble Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1180, 375],
+      "typeVersion": 4.1,
+      "parameters": {
+        "url": "=http://localhost:8080/assemble",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "audio_url": "={{$node['elevenlabs-tts'].json.url}}",
+          "footage_url": "={{$node['pexels-footage'].json.videos[0].video_files[0].link}}",
+          "script": "={{JSON.stringify($node['parse-script'].json)}}",
+          "resolution": "1080x1920",
+          "add_captions": true
+        },
+        "responseFormat": "json"
+      }
+    },
+    {
+      "id": "youtube-upload",
+      "name": "YouTube: Upload Short",
+      "type": "n8n-nodes-base.youTube",
+      "position": [1360, 300],
+      "parameters": {
+        "operation": "upload",
+        "title": "={{$json.title}}",
+        "description": "={{$json.description + '\\n\\n🔔 Follow for daily AI content!\\n\\n#Shorts #AI #Technology'}}",
+        "categoryId": "28",
+        "privacyStatus": "public",
+        "tags": "={{$json.tags.join(',')}}",
+        "videoFilePath": "={{$json.video_path}}"
+      },
+      "credentials": {
+        "youTubeOAuth2Api": "youtube-oauth"
+      }
+    },
+    {
+      "id": "tiktok-post",
+      "name": "TikTok: Cross-Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1360, 450],
+      "parameters": {
+        "url": "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        "method": "POST",
+        "headers": {
+          "Authorization": "=Bearer {{$env.TIKTOK_ACCESS_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "post_info": {
+            "title": "={{$json.title + ' #shorts #ai #viral'}}",
+            "privacy_level": "PUBLIC_TO_EVERYONE",
+            "disable_duet": false,
+            "disable_comment": false
+          },
+          "source_info": {
+            "source": "FILE_UPLOAD",
+            "video_size": "={{$json.video_size}}",
+            "chunk_size": 10000000,
+            "total_chunk_count": 1
+          }
+        },
+        "responseFormat": "json"
+      }
+    },
+    {
+      "id": "log-analytics",
+      "name": "Google Sheets: Log Analytics",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1540, 375],
+      "parameters": {
+        "operation": "append",
+        "spreadsheetId": "={{$env.GOOGLE_SHEETS_ID}}",
+        "range": "Analytics!A:Z",
+        "values": {
+          "values": [
+            "={{$now}}",
+            "={{$node['parse-script'].json.title}}",
+            "={{$node['youtube-upload'].json.id}}",
+            "={{$node['parse-script'].json.topic.title}}",
+            "=0",
+            "=$0.00"
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": "google-sheets-oauth"
+      }
+    },
+    {
+      "id": "send-notification",
+      "name": "Telegram: Notify Success",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1540, 250],
+      "parameters": {
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "=🎬 New Short uploaded!\n\n📽️ Title: {{$node['parse-script'].json.title}}\n🔗 https://youtube.com/shorts/{{$node['youtube-upload'].json.id}}\n\n📊 Niche: AI Tools\n⏱️ Duration: {{$node['parse-script'].json.estimated_duration}}s\n🕐 Time: {{$now.toFormat('HH:mm')}}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot"
+      }
+    }
+  ],
+  "connections": {
+    "Daily Trigger (3x/day)": {
+      "main": [[
+        {"node": "Fetch Reddit Trending", "type": "main", "index": 0},
+        {"node": "Google Trends API", "type": "main", "index": 0}
+      ]]
+    },
+    "Fetch Reddit Trending": {
+      "main": [[{"node": "Merge & Score Topics", "type": "main", "index": 0}]]
+    },
+    "Google Trends API": {
+      "main": [[{"node": "Merge & Score Topics", "type": "main", "index": 1}]]
+    },
+    "Merge & Score Topics": {
+      "main": [[{"node": "Claude: Generate Viral Script", "type": "main", "index": 0}]]
+    },
+    "Claude: Generate Viral Script": {
+      "main": [[{"node": "Parse Claude Response", "type": "main", "index": 0}]]
+    },
+    "Parse Claude Response": {
+      "main": [[
+        {"node": "ElevenLabs: Generate Voiceover", "type": "main", "index": 0},
+        {"node": "Pexels: Get Stock Footage", "type": "main", "index": 0}
+      ]]
+    },
+    "ElevenLabs: Generate Voiceover": {
+      "main": [[{"node": "Webhook: Assemble Video", "type": "main", "index": 0}]]
+    },
+    "Pexels: Get Stock Footage": {
+      "main": [[{"node": "Webhook: Assemble Video", "type": "main", "index": 1}]]
+    },
+    "Webhook: Assemble Video": {
+      "main": [[
+        {"node": "YouTube: Upload Short", "type": "main", "index": 0},
+        {"node": "TikTok: Cross-Post", "type": "main", "index": 0}
+      ]]
+    },
+    "YouTube: Upload Short": {
+      "main": [[
+        {"node": "Google Sheets: Log Analytics", "type": "main", "index": 0},
+        {"node": "Telegram: Notify Success", "type": "main", "index": 0}
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "any"
+  },
+  "staticData": null,
+  "tags": ["revenue", "youtube", "automation", "ai-content"],
+  "pinData": {}
+}
